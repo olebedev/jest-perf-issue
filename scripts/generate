@@ -1,0 +1,119 @@
+#!/usr/bin/env node
+
+const { promises: fs, readFileSync } = require('fs');
+const { EOL } = require('os');
+const { join, dirname, basename, resolve } = require('path');
+const seedrandom = require('seedrandom');
+
+const __root = resolve(__dirname, '..');
+const random = seedrandom(require('../package.json').name);
+const reserved = ['base'];
+const words = readFileSync('/usr/share/dict/words', 'utf8')
+  .split(EOL)
+  .filter(
+    (word) =>
+      word &&
+      4 <= word.length <= 7 &&
+      word[0].toLowerCase() === word[0] &&
+      !reserved.includes(word),
+  );
+
+const samples = {
+  index: readFileSync(join(__root, 'samples', 'index.ts'), 'utf8'),
+  tests: readFileSync(join(__root, 'samples', 'subfolder', 'basic.ts'), 'utf8'),
+  deps: [
+    join(__root, 'samples', 'delay.impl.ts'),
+    join(__root, 'samples', 'random.impl.ts'),
+    join(__root, 'samples', 'matrix.impl.ts'),
+  ],
+};
+
+async function generate(_) {
+  for (const target of unwind(_)) {
+    await generateBundle(target);
+  }
+}
+
+function unwind(targets) {
+  return targets.flatMap(({ depth = 1, ...rest }) => {
+    if (depth === 1) {
+      return [rest];
+    } else if (depth > 1) {
+      const chl = Math.min(Math.floor(depth * (5 + random() * 10)), rest.count);
+      const chunks = Array.from({ length: chl }).map((_) => ({
+        path: join(rest.path, nextWord()),
+        count: Math.floor(rest.count / chl),
+        depth: depth - 1,
+      }));
+      if (chl) chunks[chl - 1].count += rest.count % chl;
+      shake(chunks, random());
+      return unwind(chunks, words, random);
+    } else throw new Error(`Unexpected depth value: ${depth}`);
+  });
+}
+
+function nextWord() {
+  const next = words[Math.floor(random() * words.length)];
+  return random() > 0.75
+    ? next + '_' + words[Math.floor(random() * words.length)]
+    : next;
+}
+
+function split(value, distribution = 0.7) {
+  const rnd = Math.floor(random() * value * distribution);
+  const head = Math.max(
+    1,
+    rnd + Math.floor((value - value * distribution) / 2),
+  );
+  return [head, value - head];
+}
+
+function shake(chunks, distribution) {
+  const { length: len } = chunks;
+  const result = [...chunks];
+  let i = len;
+  while (--i) {
+    let ii = Math.floor(random() * (len - 1)) + 1;
+    [result[ii].count, result[ii - 1].count] = split(
+      result[ii].count + result[ii - 1].count,
+      distribution,
+    );
+  }
+  return result;
+}
+
+async function generateBundle({ path, count }) {
+  await Promise.all(
+    Array.from({ length: count }).map(async () => {
+      const name = nextWord();
+      const implFileName = join(__root, path, `${name}.ts`);
+      const testFileName = join(__root, path, 'tests', `${name}.tests.ts`);
+      await fs.mkdir(dirname(testFileName), { recursive: true });
+      await Promise.all(
+        samples.deps.map((dep) =>
+          fs.copyFile(dep, join(__root, path, basename(dep))),
+        ),
+      );
+      await fs.writeFile(implFileName, samples.index, 'utf8');
+      await fs.writeFile(
+        testFileName,
+        samples.tests.replace(`from '..'`, `from '../${name}'`),
+        'utf8',
+      );
+      process.stdout.write(
+        `${implFileName.slice(__root.length + 1, -3)} .. ok${EOL}`,
+      );
+    }),
+  );
+}
+
+const targets = [
+  { path: 'bin/ci', depth: 2, count: 51 },
+  { path: 'conf', depth: 1, count: 10 },
+  { path: 'src/pages', depth: 4, count: 5134 },
+  { path: 'src/ui', depth: 2, count: 1079 },
+  { path: 'src/base', depth: 2, count: 20 },
+  { path: 'tools', depth: 1, count: 20 },
+];
+
+generate(targets);

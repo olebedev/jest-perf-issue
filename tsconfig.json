@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    "composite": false,
+    // Override the empty types from tsconfig.build.json back to default.
+    "types": null
+  },
+  "include": [
+    "bin",
+    "conf",
+    "src/**/*",
+    "tools"
+  ]
+}

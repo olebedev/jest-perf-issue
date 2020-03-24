@@ -1,0 +1,49 @@
+{
+  "cacheDirectory": "target/jest-cache",
+  "coverageDirectory": "target/coverage",
+  "coverageReporters": [
+    "lcov",
+    "text",
+    "text-summary",
+    "html"
+  ],
+  "collectCoverageFrom": [
+    "**/*"
+  ],
+  "coveragePathIgnorePatterns": [
+    "/node_modules/",
+    "/tests/",
+    "<rootDir>/tools/",
+    "\\.(?!tsx?)\\w+$"
+  ],
+  "globals": {
+    "ts-jest": {
+      "tsConfig": "<rootDir>/tsconfig.test.json",
+      "isolatedModules": true
+    }
+  },
+  "moduleDirectories": [
+    "node_modules",
+    "<rootDir>/src"
+  ],
+  "moduleFileExtensions": [
+    "ts",
+    "js"
+  ],
+  "roots": [
+    "<rootDir>/bin",
+    "<rootDir>/conf",
+    "<rootDir>/src",
+    "<rootDir>/tools"
+  ],
+  "testMatch": [
+    "**/tests/**/*.tests.{js,ts,tsx}"
+  ],
+  "testPathIgnorePatterns": [
+    "/node_modules/"
+  ],
+  "transform": {
+    ".ts$": "ts-jest"
+  },
+  "preset": "ts-jest"
+}
